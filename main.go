@@ -20,8 +20,14 @@ var (
 	srcStream goka.Stream = "btc"
 )
 
-func verifyTopic(tmgr goka.TopicManager, topic string) {
-	err := tmgr.EnsureStreamExists(topic, 10)
+func verifyTopic(topic string) {
+	
+	tmgr, err := goka.NewTopicManager(brokers, goka.DefaultConfig(), goka.NewTopicManagerConfig())
+	if err != nil {
+		logger.Fatal("error creating topic manager", zap.String("Error", err.Error()))
+	}
+
+	err = tmgr.EnsureStreamExists(topic, 10)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Error creating topic: %s", topic), zap.String("Error", err.Error()))
 	}
@@ -30,12 +36,7 @@ func verifyTopic(tmgr goka.TopicManager, topic string) {
 func main() {
 	ctx := context.Background()
 
-	tmgr, err := goka.NewTopicManager(brokers, goka.DefaultConfig(), goka.NewTopicManagerConfig())
-	if err != nil {
-		logger.Fatal("error creating topic manager", zap.String("Error", err.Error()))
-	}
-
-	verifyTopic(tmgr, "btc")
+	verifyTopic("btc")
 	srcTopic := &models.Topic{Stream: srcStream, Codec: new(codecs.TxnCodec)}
 
 	// RUN TXN collector
@@ -45,7 +46,7 @@ func main() {
 	done := make(chan bool)
 
 	wb := &windowBuilder.WindowBuilder{Logger: logger, SourceTopic: srcTopic, AggTopic: aggTopic, Done: done}
-	err = wb.Init(brokers)
+	err := wb.Init(brokers)
 
 	go wb.Run(ctx, brokers)
 	if err != nil {

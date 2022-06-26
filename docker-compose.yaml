@@ -59,13 +59,13 @@ services:
       - "kafka1"
       - "kafka2"
 
-  # btcdispersion:
+  # aggregator:
   #   build: 
   #     context: .
   #     labels: 
   #       - "co.elastic.logs/enabled=true"
   #       - "co.elastic.logs/json.keys_under_root=false"
-  #   container_name: btcdispersion
+  #   container_name: aggregator
   #   depends_on:
   #     - kafka1
   #     - kafka2
