@@ -12,7 +12,7 @@ func (c *ArrayCodec) Encode(value interface{}) ([]byte, error) {
 }
 
 func (c *ArrayCodec) Decode(data []byte) (interface{}, error) {
-	var v []models.Event
+	var v []models.Txn
 	err := json.Unmarshal(data, &v)
 	return v, err
 }

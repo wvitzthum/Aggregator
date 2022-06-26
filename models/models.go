@@ -1,15 +1,8 @@
 package models
 
 import (
-	"time"
-
 	"github.com/lovoo/goka"
 )
-
-type Event struct {
-	T     time.Time
-	Value interface{}
-}
 
 type Topic struct {
 	Stream  goka.Stream
@@ -45,7 +38,7 @@ type Txn struct {
 		} `json:"out"`
 		RelayedBy string `json:"relayed_by"`
 		Size      int    `json:"size"`
-		Time      int    `json:"time"`
+		Time      int64   `json:"time"`
 		TxIndex   int    `json:"tx_index"`
 		Ver       int    `json:"ver"`
 		VinSz     int    `json:"vin_sz"`

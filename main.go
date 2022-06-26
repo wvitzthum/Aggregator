@@ -42,15 +42,15 @@ func main() {
 	btcCollector := txnCollector.TxnCollector{Brokers: brokers, Topic: srcTopic}
 	go btcCollector.RunBTCCollector(ctx)
 
-
-	verifyTopic(tmgr, "events")
-
 	done := make(chan bool)
 
 	wb := &windowBuilder.WindowBuilder{Logger: logger, SourceTopic: srcTopic, AggTopic: aggTopic, Done: done}
-	
-	go wb.Run(ctx, brokers)
+	err = wb.Init(brokers)
 
+	go wb.Run(ctx, brokers)
+	if err != nil {
+		logger.Fatal("Error Initializing Window Builder", zap.String("Error", err.Error()))
+	}
 	runView()
 
 	<-done

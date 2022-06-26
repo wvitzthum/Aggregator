@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
@@ -14,11 +13,6 @@ import (
 
 type WindowState struct {
 	g *goka.GroupGraph
-}
-
-type Event struct {
-	T     time.Time
-	Value interface{}
 }
 
 type WindowBuilder struct {
@@ -30,14 +24,14 @@ type WindowBuilder struct {
 }
 
 func (wb *WindowBuilder) Init(brokers []string, options ...goka.ProcessorOption) error {
-	if wb.Logger == nil || wb.SourceTopic == nil || wb.Processor == nil {
+	if wb.Logger == nil || wb.SourceTopic == nil {
 		wb.Logger.Fatal("Could not init windowbuilder")
 	}
 	
 	var err error
 	wb.Processor, err = goka.NewProcessor(brokers,
 		goka.DefineGroup("window",
-			goka.Input("events", wb.SourceTopic.Codec, wb.buildWindow),
+			goka.Input(wb.SourceTopic.Stream, wb.SourceTopic.Codec, wb.buildWindow),
 			goka.Persist(wb.AggTopic),
 		),
 		options...,
@@ -60,37 +54,37 @@ func (wb *WindowBuilder) Run(ctx context.Context, brokers []string) {
 	log.Println("window builder shut down nicely")
 }
 
-func (wb *WindowBuilder) buildWindow(ctx goka.Context, msg interface{}) {
-	var window []Event
+func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {
+	var window []models.Txn
 	var ok bool
 
 	// get the existing window against this key
 	//t := time.Now()
-	windowI := ctx.Value()
+	windowI := gctx.Value()
 	if windowI == nil {
 		// make a new window
-		window = make([]Event, 0)
+		window = make([]models.Txn, 0)
 	} else {
-		window, ok = windowI.([]Event)
+		window, ok = windowI.([]models.Txn)
 		if !ok {
 			log.Println(windowI)
-			ctx.Fail(fmt.Errorf("didn't receive a window from ctx.Value"))
+			gctx.Fail(fmt.Errorf("didn't receive a window from ctx.Value"))
 		}
 	}
 	//log.Println("get", time.Since(t), len(window))
 
 	// assert the msg is an Event
-	event, ok := msg.(Event)
+	txn, ok := msg.(models.Txn)
 	if !ok {
-		ctx.Fail(fmt.Errorf("couldn't assert that the received message was of type Event"))
+		gctx.Fail(fmt.Errorf("couldn't assert that the received message was of type Event"))
 	}
 
 	//t = time.Now()
 	// insert the new event into the history ensuring that order is correct
-	newWindow := append(window, event)
+	newWindow := append(window, txn)
 
 	// emit the new window
-	ctx.SetValue(newWindow)
+	gctx.SetValue(newWindow)
 	//log.Println("set", time.Since(t), len(newWindow))
 
 }
