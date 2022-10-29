@@ -4,17 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	codecs "aggregator/codecs"
-	models "aggregator/models"
-	txnCollector "aggregator/txnCollector"
-	windowBuilder "aggregator/windowBuilder"
+	codecs "aggregator/service/codecs"
+	models "aggregator/service/models"
+	views "aggregator/service/views"
+	txnCollector "aggregator/service/txnCollector"
+	windowBuilder "aggregator/service/windowBuilder"
 
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
 )
 
 var (
-	brokers = []string{"localhost:19092"}
+	brokers = []string{"localhost:9092"}
 	logger, _ = zap.NewProduction()
 	aggTopic = new(codecs.ArrayCodec)
 	srcStream goka.Stream = "btc"
@@ -52,7 +53,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error Initializing Window Builder", zap.String("Error", err.Error()))
 	}
-	runView()
+	views.RunViews(brokers)
 
 	<-done
 }

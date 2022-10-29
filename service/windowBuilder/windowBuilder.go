@@ -1,8 +1,8 @@
 package windowBuilder
 
 import (
-	"aggregator/codecs"
-	"aggregator/models"
+	"aggregator/service/codecs"
+	"aggregator/service/models"
 	"context"
 	"fmt"
 	"log"

@@ -1,9 +1,8 @@
-package main
+package views
 
 import (
-	"aggregator/codecs"
+	"aggregator/service/codecs"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,7 +11,7 @@ import (
 	"github.com/lovoo/goka"
 )
 
-func runView() {
+func RunViews(brokers []string) {
 	log.Println("running view")
 
 	view, err := goka.NewView(brokers,
@@ -27,27 +26,8 @@ func runView() {
 
 	// /{key} returns the full history for that key ordered by descending
 	// time
-	root.HandleFunc("/{key}", func(w http.ResponseWriter, r *http.Request) {
-
-		// get the stored window
-		value, err := view.Get(mux.Vars(r)["key"])
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if value == nil {
-			w.Write([]byte("value is nil"))
-			return
-		}
-
-		data, err := json.Marshal(value)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// write the serialised window to the responseWriter
-		w.Write(data)
-	})
+	root.HandleFunc("/window/{key}", getByID(view))
+	root.HandleFunc("/window/", getAll(view))
 
 	fmt.Println("View opened at http://localhost:9095/")
 	go http.ListenAndServe(":9095", root)

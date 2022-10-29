@@ -1,11 +1,12 @@
 package windowBuilder
 
 import (
-	"aggregator/models"
 	"context"
 	"math/rand"
 	"testing"
-
+	
+	"aggregator/service/models"
+	
 	"github.com/google/uuid"
 	"github.com/lovoo/goka"
 	"github.com/lovoo/goka/tester"

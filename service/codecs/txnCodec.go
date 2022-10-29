@@ -3,7 +3,7 @@ package codecs
 import (
 	"encoding/json"
 
-	"aggregator/models"
+	"aggregator/service/models"
 )
 
 type TxnCodec struct{}

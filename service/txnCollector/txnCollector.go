@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/url"
 
-	models "aggregator/models"
+	models "aggregator/service/models"
 
 	"github.com/gorilla/websocket"
 	"github.com/lovoo/goka"
