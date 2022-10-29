@@ -11,7 +11,7 @@ Its a merged and refined version [Mike's](https://github.com/mikedewar) repos:
 
 
 ## Architecture
-![Flow Diagram](docs\flowDiagram.jpg)
+![Flow Diagram](docs/flowDiagram.jpg)
 
 
 ## Currently under development
