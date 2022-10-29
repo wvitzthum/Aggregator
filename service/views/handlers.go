@@ -30,7 +30,7 @@ func getByID(view *goka.View) func(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 
-		// write the serialised window to the responseWriter
+		// write the serialized window to the responseWriter
 		w.Write(data)
 	}
 }
@@ -63,7 +63,7 @@ func getAll(view *goka.View) func(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 
-		// write the serialised window to the responseWriter
+		// write the serialized window to the responseWriter
 		w.Write(data)
 	}
 }
