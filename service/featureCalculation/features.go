@@ -3,6 +3,7 @@ package featureCalculation
 import (
 	"aggregator/service/models"
 	"log"
+	"math"
 
 	"gonum.org/v1/gonum/stat"
 )
@@ -26,9 +27,17 @@ func Sum(w []float64) float64 {
 	return res
 }
 
+func Variance(v []float64, w []float64) float64{
+	res := stat.Variance(v, w)
+	if math.IsNaN(res) {
+		return 0.0
+	}
+	return res
+}
+
 func CalcFeatures(w []models.Txn) *models.Features {
 
-	features := new(models.Features)
+	features := &models.Features{Features: map[string]float64{}}
 
 	var err error
 
@@ -38,15 +47,16 @@ func CalcFeatures(w []models.Txn) *models.Features {
 		values[i] = float64(txn.X.Out[0].Value)
 	}
 
-	features.SumValue = Sum(values)
+	features.Features["TOTAL_SUM"] = Sum(values)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	features.MeanValue = stat.Mean(values, nil)
+	features.Features["TOTAL_MEAN"] = stat.Mean(values, nil)
 
-	features.MedianValue = stat.Quantile(0.5, stat.Empirical, values,nil)
-
+	features.Features["TOTAL_MEDIAN"] = stat.Quantile(0.5, stat.Empirical, values,nil)
+	features.Features["TOTAL_VARIANCE"] = Variance(values, nil)
+	features.Features["TOTAL_COUNT"] = float64(len(w))
 	return features
 
 }

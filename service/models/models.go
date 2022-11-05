@@ -5,10 +5,7 @@ import (
 )
 
 type Features struct {
-	SumValue    float64
-	MeanValue   float64
-	MedianValue float64
-	Degree      float64
+	Features	map[string]float64 `json:"features"`
 }
 
 type Topic struct {

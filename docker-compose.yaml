@@ -113,7 +113,7 @@ services:
     command: "bash -c 'echo Waiting for Kafka to be ready... && \
                cub kafka-ready -b kafka:29092 1 30 && \
                kafka-topics --create --topic btc --partitions 100 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 && \
-               kafka-topics --create --topic features --partitions 100 --replication-factor 1 —config cleanup.policy=compact —config delete.retention.ms=10 —config segment.ms=1000 —config min.cleanable.dirty.ratio=0.1 --bootstrap-server kafka:29092'"
+               kafka-topics --create --topic features --partitions 100 --replication-factor 1 --config cleanup.policy=compact --config delete.retention.ms=10 --config segment.ms=1000 --config min.cleanable.dirty.ratio=0.1 --bootstrap-server kafka:29092'"
               #  && kafka-console-producer --broker-list kafka:29092 -topic second.users < /data/message.json'"
 
   # aggregator:
