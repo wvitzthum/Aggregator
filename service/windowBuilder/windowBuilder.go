@@ -1,11 +1,11 @@
 package windowBuilder
 
 import (
-	"aggregator/service/codecs"
 	"aggregator/service/models"
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
@@ -17,22 +17,23 @@ type WindowState struct {
 
 type WindowBuilder struct {
 	Logger			*zap.Logger
+	Brokers			[]string
 	SourceTopic		*models.Topic
-	AggTopic		*codecs.ArrayCodec
+	OutTopic		*models.Topic
 	Processor		*goka.Processor
 	Done			chan bool
 }
 
-func (wb *WindowBuilder) Init(brokers []string, options ...goka.ProcessorOption) error {
+func (wb *WindowBuilder) Init(options ...goka.ProcessorOption) error {
 	if wb.Logger == nil || wb.SourceTopic == nil {
 		wb.Logger.Fatal("Could not init windowbuilder")
 	}
 	
 	var err error
-	wb.Processor, err = goka.NewProcessor(brokers,
+	wb.Processor, err = goka.NewProcessor(wb.Brokers,
 		goka.DefineGroup("window",
-			goka.Input(wb.SourceTopic.Stream, wb.SourceTopic.Codec, wb.buildWindow),
-			goka.Persist(wb.AggTopic),
+			goka.Input(*wb.SourceTopic.Stream, wb.SourceTopic.Codec, wb.buildWindow),
+			goka.Persist(wb.OutTopic.Codec),
 		),
 		options...,
 	)
@@ -44,14 +45,14 @@ func (wb *WindowBuilder) Init(brokers []string, options ...goka.ProcessorOption)
 
 }
 
-func (wb *WindowBuilder) Run(ctx context.Context, brokers []string) {
-	defer close(wb.Done)
+func (wb *WindowBuilder) Run(ctx context.Context, wg sync.WaitGroup) {
+	defer wg.Done()
 
 	err := wb.Processor.Run(ctx)
 	if err != nil {
-		log.Fatal(err)
+		wb.Logger.Error(err.Error())
 	}
-	log.Println("window builder shut down nicely")
+	wb.Logger.Info("window builder shut down nicely")
 }
 
 func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {

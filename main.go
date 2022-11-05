@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	codecs "aggregator/service/codecs"
+	featureCalculator "aggregator/service/featureCalculator"
 	models "aggregator/service/models"
-	views "aggregator/service/views"
 	txnCollector "aggregator/service/txnCollector"
+	views "aggregator/service/views"
 	windowBuilder "aggregator/service/windowBuilder"
 
 	"github.com/lovoo/goka"
@@ -17,8 +19,9 @@ import (
 var (
 	brokers = []string{"localhost:9092"}
 	logger, _ = zap.NewProduction()
-	aggTopic = new(codecs.ArrayCodec)
-	srcStream goka.Stream = "btc"
+	txnTopic goka.Stream = "btc"
+	windowTopic goka.Stream = "window-table"
+	featureTopic goka.Stream = "features"
 )
 
 func verifyTopic(topic string) {
@@ -37,23 +40,36 @@ func verifyTopic(topic string) {
 func main() {
 	ctx := context.Background()
 
-	verifyTopic("btc")
-	srcTopic := &models.Topic{Stream: srcStream, Codec: new(codecs.TxnCodec)}
+	verifyTopic(string(txnTopic))
+	verifyTopic(string(featureTopic))
+	txnStream := &models.Topic{Stream: &txnTopic, Codec: new(codecs.TxnCodec)}
+	windowStream := &models.Topic{Stream: &windowTopic, Codec: new(codecs.ArrayCodec)}
+	featureStream := &models.Topic{Stream: &featureTopic, Codec: new(codecs.FeaturesCodec)}
+
+	
 
 	// RUN TXN collector
-	btcCollector := txnCollector.TxnCollector{Brokers: brokers, Topic: srcTopic}
+	btcCollector := txnCollector.TxnCollector{Brokers: brokers, Topic: txnStream}
 	go btcCollector.RunBTCCollector(ctx)
 
-	done := make(chan bool)
+	wg := sync.WaitGroup{}
 
-	wb := &windowBuilder.WindowBuilder{Logger: logger, SourceTopic: srcTopic, AggTopic: aggTopic, Done: done}
-	err := wb.Init(brokers)
-
-	go wb.Run(ctx, brokers)
+	wb := &windowBuilder.WindowBuilder{Logger: logger, SourceTopic: txnStream, OutTopic: windowStream, Brokers: brokers}
+	err := wb.Init()
 	if err != nil {
 		logger.Fatal("Error Initializing Window Builder", zap.String("Error", err.Error()))
 	}
+	
+	fc := &featureCalculator.FeatureCalculator{Logger: logger, SourceTopic: windowStream, OutTopic: featureStream, Brokers: brokers}
+	err = fc.Init()
+	if err != nil {
+		logger.Fatal("Error Feature Calc", zap.String("Error", err.Error()))
+	}
+	wg.Add(1)
+	go wb.Run(ctx, wg)
+	wg.Add(1)
+	go fc.Run(ctx, wg)
 	views.RunViews(brokers)
 
-	<-done
+	wg.Wait()
 }

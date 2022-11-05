@@ -53,7 +53,7 @@ func TestWindowBuilderOneMessage(t *testing.T) {
 	input := wb.Processor.Graph().InputStreams().Topics()[0]
 	table := goka.GroupTable(wb.Processor.Graph().Group())
 
-	// form the expected windoww
+	// form the expected window
 	expected := []models.Txn{msg}
 
 	// generate the message on the input

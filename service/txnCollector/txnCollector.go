@@ -38,7 +38,7 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 
 	// create a new emitter that's going to take the data from the websocket and
 	// put it on kafka for us to play with downstream
-	emitter, err := goka.NewEmitter(tc.Brokers, tc.Topic.Stream, tc.Topic.Codec)
+	emitter, err := goka.NewEmitter(tc.Brokers, *tc.Topic.Stream, tc.Topic.Codec)
 	if err != nil {
 		log.Fatalf("error creating emitter: %v", err)
 	}
