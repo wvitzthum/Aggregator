@@ -19,7 +19,8 @@ import (
 var (
 	brokers = []string{"localhost:9092"}
 	logger, _ = zap.NewProduction()
-	txnTopic goka.Stream = "btc"
+	txnTopic goka.Stream = "btc-txns"
+	windowSRCTopic goka.Stream = "btc"
 	windowTopic goka.Stream = "window-table"
 	featureTopic goka.Stream = "features"
 )
@@ -42,14 +43,16 @@ func main() {
 
 	verifyTopic(string(txnTopic))
 	verifyTopic(string(featureTopic))
+	verifyTopic(string(featureTopic))
 	txnStream := &models.Topic{Stream: &txnTopic, Codec: new(codecs.TxnCodec)}
+	windowSRCTopic := &models.Topic{Stream: &windowSRCTopic, Codec: new(codecs.TxnCodec)}
 	windowStream := &models.Topic{Stream: &windowTopic, Codec: new(codecs.ArrayCodec)}
 	featureStream := &models.Topic{Stream: &featureTopic, Codec: new(codecs.FeaturesCodec)}
 
 	
 
 	// RUN TXN collector
-	btcCollector := txnCollector.TxnCollector{Brokers: brokers, Topic: txnStream}
+	btcCollector := txnCollector.TxnCollector{Brokers: brokers, TxnTopic: txnStream, WindowTopic: windowSRCTopic}
 	go btcCollector.RunBTCCollector(ctx)
 
 	wg := sync.WaitGroup{}

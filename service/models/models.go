@@ -5,7 +5,9 @@ import (
 )
 
 type Features struct {
-	Features	map[string]float64 `json:"features"`
+	Features		map[string]float64 	`json:"features"`
+	Relationships	[]string			`json:"relationships"`
+	Transactions	[]string			`json:"transactions"`
 }
 
 type Topic struct {

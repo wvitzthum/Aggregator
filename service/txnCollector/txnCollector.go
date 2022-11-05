@@ -13,7 +13,8 @@ import (
 
 type TxnCollector struct {
 	Brokers	[]string
-	Topic	*models.Topic
+	WindowTopic	*models.Topic
+	TxnTopic	*models.Topic
 }
 
 // runBTCCollector reads from the blockchain.info websocket and writes to the
@@ -38,11 +39,17 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 
 	// create a new emitter that's going to take the data from the websocket and
 	// put it on kafka for us to play with downstream
-	emitter, err := goka.NewEmitter(tc.Brokers, *tc.Topic.Stream, tc.Topic.Codec)
+	emitterWindow, err := goka.NewEmitter(tc.Brokers, *tc.WindowTopic.Stream, tc.WindowTopic.Codec)
 	if err != nil {
 		log.Fatalf("error creating emitter: %v", err)
 	}
-	defer emitter.Finish()
+	defer emitterWindow.Finish()
+
+	emitterTXN, err := goka.NewEmitter(tc.Brokers, *tc.TxnTopic.Stream, tc.TxnTopic.Codec)
+	if err != nil {
+		log.Fatalf("error creating emitter: %v", err)
+	}
+	defer emitterTXN.Finish()
 
 	// txnChan is where we're going to put the parsed JSON message from the
 	// websocket
@@ -52,7 +59,7 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 	// this for loop runs for the life of the service
 	for {
 
-		// this bit goes and waits sfor a message on the wbesocket
+		// this bit goes and waits for a message on the websocket
 		// this is in a little go function so its not blocking when the cancel
 		// signal shows up
 		go func() {
@@ -71,14 +78,17 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 			log.Println("shutting down cleanly")
 			return
 		case txn = <-txnChan:
-			// TODO not totally sure that using the hash as the key is a great idea?
-			// The only reason I'm doing it is to spread out the messages across the
-			// partitions a bit.
-			key := txn.X.Hash
-			err = emitter.EmitSync(key, txn)
-			if err != nil {
-				log.Fatalf("error emitting message: %v", err)
+			// EMIT message to a topic for retention
+			emitterTXN.Emit(txn.X.Hash, txn)
+			// Emit a message for each Input of the transaction so we build windows for all addresses involved
+			for _, inp := range(txn.X.Inputs) {
+				key := inp.PrevOut.Addr
+				err = emitterWindow.EmitSync(key, txn)
+				if err != nil {
+					log.Fatalf("error emitting message: %v", err)
+				}
 			}
+
 		}
 	}
 }
