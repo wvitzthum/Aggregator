@@ -5,16 +5,20 @@ import (
 	"log"
 	"net/url"
 
+	codecs "aggregator/service/codecs"
 	models "aggregator/service/models"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/gorilla/websocket"
 	"github.com/lovoo/goka"
+	"go.uber.org/zap"
 )
 
 type TxnCollector struct {
-	Brokers	[]string
-	WindowTopic	*models.Topic
-	TxnTopic	*models.Topic
+	Brokers     []string
+	Logger      *zap.Logger
+	WindowTopic *models.Topic
+	RedisClient *redis.Client
 }
 
 // runBTCCollector reads from the blockchain.info websocket and writes to the
@@ -35,7 +39,7 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println("successfully subscribed to", u.String())
+	tc.Logger.Info("successfully subscribed", zap.String("url", u.String()))
 
 	// create a new emitter that's going to take the data from the websocket and
 	// put it on kafka for us to play with downstream
@@ -44,12 +48,6 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 		log.Fatalf("error creating emitter: %v", err)
 	}
 	defer emitterWindow.Finish()
-
-	emitterTXN, err := goka.NewEmitter(tc.Brokers, *tc.TxnTopic.Stream, tc.TxnTopic.Codec)
-	if err != nil {
-		log.Fatalf("error creating emitter: %v", err)
-	}
-	defer emitterTXN.Finish()
 
 	// txnChan is where we're going to put the parsed JSON message from the
 	// websocket
@@ -78,13 +76,20 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 			log.Println("shutting down cleanly")
 			return
 		case txn = <-txnChan:
-			// EMIT message to a topic for retention
-			emitterTXN.Emit(txn.X.Hash, txn)
+			// EMIT message to a redis for retention
+			data, err := codecs.TxnEncodeGOB(txn)
+			if err != nil {
+				tc.Logger.Error("error encoding message: %v", zap.String("error", err.Error()))
+			}
+			err = tc.RedisClient.Set(ctx, txn.X.Hash, data, 0).Err()
+			if err != nil {
+				tc.Logger.Error("Error settign redis entry", zap.Error(err))
+			}
 			// Emit a message for each Input of the transaction so we build windows for all addresses involved
-			for _, inp := range(txn.X.Inputs) {
-				err = emitterWindow.EmitSync(inp.PrevOut.Addr, txn)
+			for _, inp := range txn.X.Inputs {
+				err = emitterWindow.EmitSync(inp.PrevOut.Addr, txn.X.Hash)
 				if err != nil {
-					log.Fatalf("error emitting message: %v", err)
+					tc.Logger.Error("error emitting message: %v", zap.String("error", err.Error()))
 				}
 			}
 

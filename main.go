@@ -12,21 +12,22 @@ import (
 	views "aggregator/service/views"
 	windowBuilder "aggregator/service/windowBuilder"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
 )
 
 var (
-	brokers = []string{"localhost:9092"}
-	logger, _ = zap.NewProduction()
-	txnTopic goka.Stream = "btc-txns"
+	brokers                    = []string{"localhost:9092"}
+	logger, _                  = zap.NewProduction()
+	txnTopic       goka.Stream = "btc-txns"
 	windowSRCTopic goka.Stream = "btc"
-	windowTopic goka.Stream = "window-table"
-	featureTopic goka.Stream = "features"
+	windowTopic    goka.Stream = "window-table"
+	featureTopic   goka.Stream = "features"
 )
 
 func verifyTopic(topic string) {
-	
+
 	tmgr, err := goka.NewTopicManager(brokers, goka.DefaultConfig(), goka.NewTopicManagerConfig())
 	if err != nil {
 		logger.Fatal("error creating topic manager", zap.String("Error", err.Error()))
@@ -38,32 +39,45 @@ func verifyTopic(topic string) {
 	}
 }
 
+func initRedis() *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81", // no password set
+		DB:       0,  // use default DB
+	})
+}
+
 func main() {
 	ctx := context.Background()
 
+	redisClient := initRedis()
+
 	verifyTopic(string(txnTopic))
 	verifyTopic(string(featureTopic))
-	verifyTopic(string(featureTopic))
-	txnStream := &models.Topic{Stream: &txnTopic, Codec: new(codecs.TxnCodec)}
-	windowSRCTopic := &models.Topic{Stream: &windowSRCTopic, Codec: new(codecs.TxnCodec)}
+	// TXN Stream keyed by the account ID
+	windowSRCTopic := &models.Topic{Stream: &windowSRCTopic, Codec: new(codecs.WindowCodec)}
+	// Stream for grouped txns per account ID
 	windowStream := &models.Topic{Stream: &windowTopic, Codec: new(codecs.ArrayCodec)}
 	featureStream := &models.Topic{Stream: &featureTopic, Codec: new(codecs.FeaturesCodec)}
 
-	
-
 	// RUN TXN collector
-	btcCollector := txnCollector.TxnCollector{Brokers: brokers, TxnTopic: txnStream, WindowTopic: windowSRCTopic}
+	btcCollector := txnCollector.TxnCollector{
+		Logger: logger, Brokers: brokers, WindowTopic: windowSRCTopic, RedisClient: redisClient,
+	}
 	go btcCollector.RunBTCCollector(ctx)
 
 	wg := sync.WaitGroup{}
 
-	wb := &windowBuilder.WindowBuilder{Logger: logger, SourceTopic: txnStream, OutTopic: windowStream, Brokers: brokers}
+	wb := &windowBuilder.WindowBuilder{
+		Logger: logger, SourceTopic: windowSRCTopic, OutTopic: windowStream, Brokers: brokers,
+	}
 	err := wb.Init()
 	if err != nil {
 		logger.Fatal("Error Initializing Window Builder", zap.String("Error", err.Error()))
 	}
-	
-	fc := &featureCalculator.FeatureCalculator{Logger: logger, SourceTopic: windowStream, OutTopic: featureStream, Brokers: brokers}
+
+	fc := &featureCalculator.FeatureCalculator{
+		Logger: logger, SourceTopic: windowStream, OutTopic: featureStream, Brokers: brokers, RedisClient: redisClient,}
 	err = fc.Init()
 	if err != nil {
 		logger.Fatal("Error Feature Calc", zap.String("Error", err.Error()))

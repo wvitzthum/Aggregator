@@ -2,7 +2,6 @@ package codecs
 
 import (
 	"encoding/json"
-	"aggregator/service/models"
 )
 
 type ArrayCodec struct{}
@@ -12,7 +11,7 @@ func (c *ArrayCodec) Encode(value interface{}) ([]byte, error) {
 }
 
 func (c *ArrayCodec) Decode(data []byte) (interface{}, error) {
-	var v []models.Txn
+	var v []string
 	err := json.Unmarshal(data, &v)
 	return v, err
 }

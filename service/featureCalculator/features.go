@@ -1,9 +1,10 @@
-package featureCalculation
+package featureCalculator
 
 import (
 	"aggregator/service/models"
 	"log"
 	"math"
+	"sort"
 
 	"gonum.org/v1/gonum/stat"
 )
@@ -35,7 +36,7 @@ func Variance(v []float64, w []float64) float64{
 	return res
 }
 
-func UpdateRelsAndTxns(txns []models.Txn, fts *models.Features) {
+func UpdateRelsAndTxns(txns []*models.Txn, fts *models.Features) {
 	for _, v := range(txns) {
 		fts.Transactions = append(fts.Transactions, v.X.Hash)
 		for _, v2 := range(v.X.Inputs) {
@@ -48,7 +49,12 @@ func UpdateRelsAndTxns(txns []models.Txn, fts *models.Features) {
 	
 }
 
-func CalcFeatures(w []models.Txn) *models.Features {
+func Median(values []float64) float64 {
+	sort.Float64s(values)
+	return stat.Quantile(0.5, stat.Empirical, values,nil)
+}
+
+func CalcFeatures(w []*models.Txn) *models.Features {
 
 	features := &models.Features{Features: map[string]float64{}}
 
@@ -66,7 +72,7 @@ func CalcFeatures(w []models.Txn) *models.Features {
 	}
 
 	features.Features["TOTAL_MEAN"] = stat.Mean(values, nil)
-	features.Features["TOTAL_MEDIAN"] = stat.Quantile(0.5, stat.Empirical, values,nil)
+	features.Features["TOTAL_MEDIAN"] = Median(values)
 	features.Features["TOTAL_VARIANCE"] = Variance(values, nil)
 	features.Features["TOTAL_COUNT"] = float64(len(w))
 	UpdateRelsAndTxns(w, features)

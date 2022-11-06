@@ -1,4 +1,4 @@
-package featureCalculation
+package featureCalculator
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestTxn(val int) models.Txn {
-	return models.Txn{
+func getTestTxn(val int) *models.Txn {
+	return &models.Txn{
 		X: models.Transaction{
 			Out: []models.Account{
 				{
@@ -21,7 +21,7 @@ func getTestTxn(val int) models.Txn {
 }
 
 func TestCalcFeatures(t *testing.T) {
-	txns := []models.Txn{getTestTxn(1), getTestTxn(5), getTestTxn(10), getTestTxn(20)}
+	txns := []*models.Txn{getTestTxn(1), getTestTxn(5), getTestTxn(10), getTestTxn(20)}
 
 	fts := CalcFeatures(txns)
 	
@@ -31,7 +31,7 @@ func TestCalcFeatures(t *testing.T) {
 }
 
 func TestJsonEncoding(t *testing.T) {
-	txns := []models.Txn{getTestTxn(1), getTestTxn(5), getTestTxn(10), getTestTxn(20)}
+	txns := []*models.Txn{getTestTxn(1), getTestTxn(5), getTestTxn(10), getTestTxn(20)}
 	fts := CalcFeatures(txns)
 	enc, err := json.Marshal(fts)
 	assert.NoError(t, err)

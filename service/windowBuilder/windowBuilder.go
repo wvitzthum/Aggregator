@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
@@ -16,19 +17,19 @@ type WindowState struct {
 }
 
 type WindowBuilder struct {
-	Logger			*zap.Logger
-	Brokers			[]string
-	SourceTopic		*models.Topic
-	OutTopic		*models.Topic
-	Processor		*goka.Processor
-	Done			chan bool
+	Logger      *zap.Logger
+	Brokers     []string
+	SourceTopic *models.Topic
+	OutTopic    *models.Topic
+	Processor   *goka.Processor
+	Done        chan bool
 }
 
 func (wb *WindowBuilder) Init(options ...goka.ProcessorOption) error {
 	if wb.Logger == nil || wb.SourceTopic == nil {
-		wb.Logger.Fatal("Could not init windowbuilder")
+		wb.Logger.Fatal("Could not init window builder")
 	}
-	
+
 	var err error
 	wb.Processor, err = goka.NewProcessor(wb.Brokers,
 		goka.DefineGroup("window",
@@ -56,17 +57,17 @@ func (wb *WindowBuilder) Run(ctx context.Context, wg sync.WaitGroup) {
 }
 
 func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {
-	var window []models.Txn
+	var window []string
 	var ok bool
 
 	// get the existing window against this key
-	//t := time.Now()
+	t := time.Now()
 	windowI := gctx.Value()
 	if windowI == nil {
 		// make a new window
-		window = make([]models.Txn, 0)
+		window = []string{}
 	} else {
-		window, ok = windowI.([]models.Txn)
+		window, ok = windowI.([]string)
 		if !ok {
 			log.Println(windowI)
 			gctx.Fail(fmt.Errorf("didn't receive a window from ctx.Value"))
@@ -75,7 +76,7 @@ func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {
 	//log.Println("get", time.Since(t), len(window))
 
 	// assert the msg is an Event
-	txn, ok := msg.(models.Txn)
+	txn, ok := msg.(string)
 	if !ok {
 		gctx.Fail(fmt.Errorf("couldn't assert that the received message was of type Event"))
 	}
@@ -86,7 +87,6 @@ func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {
 
 	// emit the new window
 	gctx.SetValue(newWindow)
-	//log.Println("set", time.Since(t), len(newWindow))
 
-
+	wb.Logger.Info("update window", zap.String("Key", gctx.Key()), zap.Duration("Build time", time.Since(t)), zap.Int("length", len(newWindow)))
 }

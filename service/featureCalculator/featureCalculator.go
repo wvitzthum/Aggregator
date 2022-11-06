@@ -1,40 +1,63 @@
 package featureCalculator
 
 import (
-	"aggregator/service/featureCalculation"
 	"aggregator/service/models"
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	codecs "aggregator/service/codecs"
+
+	"github.com/go-redis/redis/v9"
 	"github.com/lovoo/goka"
 	"go.uber.org/zap"
 )
 
 type FeatureCalculator struct {
-	Logger 		*zap.Logger
-	processor 	*goka.Processor
-	Brokers		[]string
+	Logger      *zap.Logger
+	RedisClient *redis.Client
+	processor   *goka.Processor
+	Brokers     []string
 	SourceTopic *models.Topic
-	OutTopic 	*models.Topic
+	OutTopic    *models.Topic
 }
 
-func (f *FeatureCalculator) outboundStatsProcessor(ctx goka.Context, msg interface{}) {
-	window, ok := msg.(([]models.Txn))
+func (f *FeatureCalculator) outboundStatsProcessor(gctx goka.Context, msg interface{}) {
+	window, ok := msg.([]string)
 	if !ok {
-		ctx.Fail(fmt.Errorf("couldn't convert value to Window"))
+		gctx.Fail(fmt.Errorf("couldn't convert value to Window"))
+	}
+	txns := []*models.Txn{}
+	if len(window) == 0 {
+		return
+	}
+	for _, v := range window {
+		// TODO: refactor this into its own function
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		val, err := f.RedisClient.Get(ctx, v).Result()
+		if err == redis.Nil || err != nil {
+			f.Logger.Error("key does not exist", zap.String("key", v))
+			continue
+		}
+		txn, err := codecs.TxnDecodeGOB([]byte(val))
+		if err != nil {
+			f.Logger.Error("Unable to decode", zap.String("key", v))
+			continue
+		}
+		txns = append(txns, txn)
 	}
 
-	features := featureCalculation.CalcFeatures(window)
+	features := CalcFeatures(txns)
 
 	// emit new statistics without changing the key
-	ctx.Emit(*f.OutTopic.Stream, ctx.Key(), features)
+	gctx.Emit(*f.OutTopic.Stream, gctx.Key(), features)
 }
-
 
 func (f *FeatureCalculator) Init() error {
 	var err error
-	
+
 	f.processor, err = goka.NewProcessor(f.Brokers, goka.DefineGroup("outboundStats",
 		goka.Input(*f.SourceTopic.Stream, f.SourceTopic.Codec, f.outboundStatsProcessor),
 		goka.Output(*f.OutTopic.Stream, f.OutTopic.Codec)),
