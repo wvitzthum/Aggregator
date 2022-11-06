@@ -4,9 +4,14 @@ import (
 	"github.com/lovoo/goka"
 )
 
+type Relationships struct {
+	In	    []string `json:"in"`
+	Out		[]string `json:"out"`
+}
+
 type Features struct {
 	Features		map[string]float64 	`json:"features"`
-	Relationships	[]string			`json:"relationships"`
+	Relationships	Relationships		`json:"relationships"`
 	Transactions	[]string			`json:"transactions"`
 }
 

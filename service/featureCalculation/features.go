@@ -36,14 +36,13 @@ func Variance(v []float64, w []float64) float64{
 }
 
 func UpdateRelsAndTxns(txns []models.Txn, fts *models.Features) {
-	res := []string{}
 	for _, v := range(txns) {
 		fts.Transactions = append(fts.Transactions, v.X.Hash)
 		for _, v2 := range(v.X.Inputs) {
-			res = append(res, v2.PrevOut.Addr)
+			fts.Relationships.In = append(fts.Relationships.In, v2.PrevOut.Addr)
 		}
 		for _, v2 := range(v.X.Out) {
-			res = append(res, v2.Addr)
+			fts.Relationships.Out = append(fts.Relationships.Out, v2.Addr)
 		}
 	}
 	

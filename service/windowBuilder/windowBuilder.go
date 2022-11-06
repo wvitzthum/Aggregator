@@ -88,4 +88,5 @@ func (wb *WindowBuilder) buildWindow(gctx goka.Context, msg interface{}) {
 	gctx.SetValue(newWindow)
 	//log.Println("set", time.Since(t), len(newWindow))
 
+
 }

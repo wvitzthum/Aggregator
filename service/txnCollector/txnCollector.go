@@ -82,8 +82,7 @@ func (tc *TxnCollector) RunBTCCollector(ctx context.Context) {
 			emitterTXN.Emit(txn.X.Hash, txn)
 			// Emit a message for each Input of the transaction so we build windows for all addresses involved
 			for _, inp := range(txn.X.Inputs) {
-				key := inp.PrevOut.Addr
-				err = emitterWindow.EmitSync(key, txn)
+				err = emitterWindow.EmitSync(inp.PrevOut.Addr, txn)
 				if err != nil {
 					log.Fatalf("error emitting message: %v", err)
 				}
